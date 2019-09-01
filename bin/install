@@ -17,8 +17,6 @@ get_arch () {
   esac
 }
 
-arch=$(get_arch)
-echo $arch
 case $(get_arch) in
   linux) grep_cmd="grep -oP"
          ;;
@@ -28,9 +26,6 @@ case $(get_arch) in
          exit 1
          ;;
 esac
-
-
-echo "Using grep cmd: ${grep_cmd}"
 
 dhall_json_version(){
   local -r release_version="$1"
