@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-set -e
+set -e  
 
 readonly APP_NAME="dhall"
 readonly TMP_DOWNLOAD_DIR="$(mktemp -d -t "${APP_NAME}_XXXXXX")"
 
 get_arch () {
   local -r name=$(uname | tr '[:upper:]' '[:lower:]')
-  case $name in
+  case ${name} in
   darwin) echo "macos"
           ;;
   linux)  echo "linux"
@@ -29,25 +29,57 @@ esac
 
 dhall_json_version(){
   local -r release_version="$1"
-  curl --silent https://api.github.com/repos/dhall-lang/dhall-haskell/releases | grep -e '-linux' | grep -e 'json' | grep -e ${version} | ${grep_cmd} 'json-\d+\.\d+\.\d+' | sort | uniq
+  curl --silent https://api.github.com/repos/dhall-lang/dhall-haskell/releases | grep -e '-linux' | grep -e 'json' | grep -e "${release_version}" | $(echo ${grep_cmd}) 'json-\d+\.\d+\.\d+' | sort | uniq
 }
 
 install () {
-  local -r install_type="$1"
+  # local -r install_type="$1"
   local -r version="$2"
   local -r install_path="$3"
 
-  local -r json_version=$(dhall_json_version ${version})
+  local -r json_version=$(dhall_json_version "${version}")
 
   local -r filename="$(get_filename "${version}")"
-  local -r download_url="$(get_download_url "${version}")"
+  local -r json_filename=$(get_json_filename ${version})
+  local -r download_url="$(get_download_url "${version} ${filename}")"
   local -r download_path="${TMP_DOWNLOAD_DIR}/${filename}"
 
-  echo "Downloading ${APP_NAME} from release ${version} with json version ${json_version} from ${download_url}"
-  if curl -Lf "${download_url}" -o "${download_path}"; then
-    echo "Cleaning ${APP_NAME} previous binaries"
+  if stat_files "${version}"; then
+    echo "Removing old ${APP_NAME} installation"
     rm -rf "${install_path}"
+  fi
 
+  download_and_extract_archive ${version} ${filename} ${install_path}
+  download_and_extract_archive ${version} ${json_filename} ${install_path}
+
+
+
+}
+
+stat_files() {
+  local -r version=$1
+  local -r json_version=$(dhall_json_version ${version})
+  local -r filename=$(get_filename ${version})
+  local -r json_filename="$(get_json_filename "${version}")"
+
+  local -r json_url=$(get_download_url ${version} ${json_filename})
+  local -r dhall_url=$(get_download_url ${version} ${filename})
+
+
+  curl -Is ${json_url} > /dev/null && curl -Is ${dhall_url} > /dev/null
+  return $?
+}
+
+download_and_extract_archive () {
+  local -r version=$1
+  local -r filename=$2
+  local -r install_path=$3
+  local -r download_path="${TMP_DOWNLOAD_DIR}/${filename}"
+  local -r download_url="$(get_download_url ${version} ${filename})"
+
+  echo "Downloading ${filename} from release ${version} from url: ${download_url}"
+
+  if curl -Lf "${download_url}" -o "${download_path}"; then
     echo "Creating ${APP_NAME} bin directory '${install_path}'"
     mkdir -p "${install_path}"
 
@@ -56,20 +88,26 @@ install () {
     chmod -v -R +x "${install_path}"
  else
     echo "Error: ${APP_NAME} version ${version} not found" >&2
-    exit 1
+    return 1
   fi
 }
 
-get_filename () {
+get_json_filename () {
   local -r version="$1"
   local -r platform="$(get_arch)"
   local -r json_version=$(dhall_json_version ${version})
   echo "dhall-${json_version}-x86_64-${platform}.tar.bz2"
 }
 
+get_filename () {
+  local -r version="$1"
+  local -r platform="$(get_arch)"
+  echo "dhall-${version}-x86_64-${platform}.tar.bz2"
+}
+
 get_download_url () {
   local -r version="$1"
-  local -r filename="$(get_filename "${version}")"
+  local -r filename="$2"
   echo "https://github.com/dhall-lang/dhall-haskell/releases/download/${version}/${filename}"
 }
 
