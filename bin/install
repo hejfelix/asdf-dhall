@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -e
+
+readonly APP_NAME="dhall"
+readonly TMP_DOWNLOAD_DIR="$(mktemp -d -t "${APP_NAME}_XXXXXX")"
+
+dhall_json_version(){
+  local -r release_version="$1"
+  curl -u hejfelix:8eb615df751d098de223c8f11a47713df41d6102 --silent https://api.github.com/repos/dhall-lang/dhall-haskell/releases | grep -e '-linux' | grep -e 'json' | grep -e ${version} | grep -Eio 'json-\d+\.\d+\.\d+' | sort | uniq
+}
+
+install () {
+  local -r install_type="$1"
+  local -r version="$2"
+  local -r install_path="$3"
+
+  local -r json_version=$(dhall_json_version ${version})
+
+  local -r filename="$(get_filename "${version}")"
+  local -r download_url="$(get_download_url "${version}")"
+  local -r download_path="${TMP_DOWNLOAD_DIR}/${filename}"
+
+  echo "Downloading ${APP_NAME} from release ${version} with json version ${json_version} from ${download_url}"
+  if curl -Lf "${download_url}" -o "${download_path}"; then
+    echo "Cleaning ${APP_NAME} previous binaries"
+    rm -rf "${install_path}"
+
+    echo "Creating ${APP_NAME} bin directory '${install_path}'"
+    mkdir -p "${install_path}"
+
+    echo "Extracting binary from ${download_path} to ${install_path}"
+    tar -xvf ${download_path} -C ${install_path}
+    chmod -v -R +x "${install_path}"
+ else
+    echo "Error: ${APP_NAME} version ${version} not found" >&2
+    exit 1
+  fi
+}
+
+get_arch () {
+  local -r name=$(uname | tr '[:upper:]' '[:lower:]')
+  case $name in
+  darwin) echo "macos"
+          ;;
+  linux)  echo "linux"
+          ;;
+  *)      echo "unrecognized uname"
+          ;;
+
+  esac
+}
+
+get_filename () {
+  local -r version="$1"
+  local -r platform="$(get_arch)"
+  local -r json_version=$(dhall_json_version ${version})
+  echo "dhall-${json_version}-x86_64-${platform}.tar.bz2"
+}
+
+get_download_url () {
+  local -r version="$1"
+  local -r filename="$(get_filename "${version}")"
+  echo "https://github.com/dhall-lang/dhall-haskell/releases/download/${version}/${filename}"
+}
+
+install "${ASDF_INSTALL_TYPE}" "${ASDF_INSTALL_VERSION}" "${ASDF_INSTALL_PATH}"

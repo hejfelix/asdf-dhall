@@ -1,0 +1,1 @@
+curl --silent https://api.github.com/repos/dhall-lang/dhall-haskell/releases | grep -e '-linux' | grep -Eio '\d+\.\d+\.\d+' | sort | uniq | tr '\n' ' '
