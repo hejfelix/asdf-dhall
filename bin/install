@@ -4,9 +4,37 @@ set -e
 readonly APP_NAME="dhall"
 readonly TMP_DOWNLOAD_DIR="$(mktemp -d -t "${APP_NAME}_XXXXXX")"
 
+get_arch () {
+  local -r name=$(uname | tr '[:upper:]' '[:lower:]')
+  case $name in
+  darwin) echo "macos"
+          ;;
+  linux)  echo "linux"
+          ;;
+  *)      echo "unrecognized uname"
+          ;;
+
+  esac
+}
+
+arch=$(get_arch)
+echo $arch
+case $(get_arch) in
+  linux) grep_cmd="grep -oP"
+         ;;
+  macos) grep_cmd="grep -Eio"
+         ;;
+  *)     echo "Couldn't determine arch to set grep_cmd..."
+         exit 1
+         ;;
+esac
+
+
+echo "Using grep cmd: ${grep_cmd}"
+
 dhall_json_version(){
   local -r release_version="$1"
-  curl -u hejfelix:8eb615df751d098de223c8f11a47713df41d6102 --silent https://api.github.com/repos/dhall-lang/dhall-haskell/releases | grep -e '-linux' | grep -e 'json' | grep -e ${version} | grep -Eio 'json-\d+\.\d+\.\d+' | sort | uniq
+  curl --silent https://api.github.com/repos/dhall-lang/dhall-haskell/releases | grep -e '-linux' | grep -e 'json' | grep -e ${version} | ${grep_cmd} 'json-\d+\.\d+\.\d+' | sort | uniq
 }
 
 install () {
@@ -35,19 +63,6 @@ install () {
     echo "Error: ${APP_NAME} version ${version} not found" >&2
     exit 1
   fi
-}
-
-get_arch () {
-  local -r name=$(uname | tr '[:upper:]' '[:lower:]')
-  case $name in
-  darwin) echo "macos"
-          ;;
-  linux)  echo "linux"
-          ;;
-  *)      echo "unrecognized uname"
-          ;;
-
-  esac
 }
 
 get_filename () {
