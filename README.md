@@ -1,2 +1,2 @@
 # asdf-dhall
-asdf plugin or dhall
+asdf plugin for dhall
